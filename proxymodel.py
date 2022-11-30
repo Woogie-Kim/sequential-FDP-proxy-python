@@ -25,7 +25,7 @@ class ProxyModel:
                             input_size=positions[0].num_of_wells,
                             hidden_size=100,
                             output_size=3,
-                            sequence_length=len(positions[0].wells[0].well_control),
+                            sequence_length=len(positions[0].wells[0].control),
                             num_layers=2)
         self.args = args
         self.saved_dir = f'{args.train_model_saved_dir}/{model_name}'
@@ -61,7 +61,7 @@ class ProxyModel:
             # normalize input data
             data_input = []
             for d in data:
-                scheduled_control = [__merge_schedule_control__(well.schedule, well.well_control) for well in d.wells]
+                scheduled_control = [__merge_schedule_control__(well.schedule, well.control) for well in d.wells]
                 data_input.append(np.array(scheduled_control).reshape(-1, ))
             data_input = np.array(data_input)
             scaler_input.fit(data_input)
