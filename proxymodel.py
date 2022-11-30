@@ -1,8 +1,9 @@
 import torch.optim
 import numpy as np
+import os
 from tqdm import tqdm
 from sampler import DataSampling
-from dlmodels import CNNDataset, LSTMDataset, CNN, LSTM
+from dlmodels import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 from sklearn.metrics import r2_score
@@ -17,14 +18,18 @@ class ProxyModel:
         self.model_name = model_name
         if model_name == 'CNN':
             self.model = CNN()
+        elif model_name == 'ResNet':
+            self.model = ResNet18()
         elif model_name == 'LSTM':
             self.model = LSTM(
                             input_size=positions[0].num_of_wells,
                             hidden_size=100,
                             output_size=3,
-                            sequence_length=len(positions[0].wells[0].control),
+                            sequence_length=len(positions[0].wells[0].well_control),
                             num_layers=2)
         self.args = args
+        self.saved_dir = f'{args.train_model_saved_dir}/{model_name}'
+
         self.data_sampling = DataSampling(args)
         self.perm = self.data_sampling.perm
 
@@ -56,7 +61,7 @@ class ProxyModel:
             # normalize input data
             data_input = []
             for d in data:
-                scheduled_control = [__merge_schedule_control__(well.schedule, well.control) for well in d.wells]
+                scheduled_control = [__merge_schedule_control__(well.schedule, well.well_control) for well in d.wells]
                 data_input.append(np.array(scheduled_control).reshape(-1, ))
             data_input = np.array(data_input)
             scaler_input.fit(data_input)
@@ -86,27 +91,28 @@ class ProxyModel:
                 d.prod_data_norm = norm.tolist()
                 output_preprocessed.append(norm)
 
-        elif model_name == 'CNN':
+        elif model_name in ['CNN', 'ResNet']:
             data_output = [d.fit for d in data]
             data_output = np.array(data_output).reshape(-1, 1)
             scaler_output.fit(data_output)
-            for d, fit_all in zip(data, data_output):
-                d.fit_norm = fit_all
+            data_output_norm = scaler_output.transform(data_output)
+            for d, norm in zip(data, data_output_norm):
+                d.fit_norm = norm[0]
 
         self.scaler = scaler_output
 
         return data
 
-    def train_model(self, data, train_ratio=0.7, validate_ratio=0.15, saved_dir='./model'):
+    def make_dataloader(self, data, train_ratio, validate_ratio):
         args = self.args
 
         test_ratio = 1 - train_ratio - validate_ratio
 
         data = self.preprocess(data, model_name=self.model_name)
-        if self.model_name == 'CNN':
-            dataset = CNNDataset(data, args.max_tof, args.num_of_x, args.num_of_y, None)
-        elif self.model_name == 'LSTM':
-            dataset = LSTMDataset(data, args.production_time, args.dstep, args.tstep, None)
+        if self.model_name in ['CNN', 'ResNet']:
+            dataset = WPDataset(data, args.max_tof, args.num_of_x, args.num_of_y, None)
+        elif self.model_name in ['LSTM']:
+            dataset = WODataset(data, args.production_time, args.dstep, args.tstep, None)
         else:
             NotImplementedError('Model not supported')
 
@@ -119,6 +125,13 @@ class ProxyModel:
         train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
         valid_dataloader = DataLoader(validation_dataset, batch_size=args.batch_size, shuffle=True)
         test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
+
+        return train_dataloader, valid_dataloader, test_dataloader
+
+    def train_model(self, data, train_ratio=0.7, validate_ratio=0.15, saved_dir='./model'):
+
+        train_dataloader, valid_dataloader, test_dataloader = \
+            self.make_dataloader(data, train_ratio=train_ratio, validate_ratio=validate_ratio)
 
         self.model = self.train(self.model, train_dataloader, valid_dataloader, test_dataloader, saved_dir)
 
@@ -166,15 +179,23 @@ class ProxyModel:
                 print(f'Validation Loss Decreased({min_valid_loss:.6f}--->{valid_loss:.6f}) \t Saving The Model')
                 min_valid_loss = valid_loss
                 # Saving State Dict
+                if not os.path.exists(saved_dir):
+                    os.mkdir(saved_dir)
                 torch.save(model.state_dict(), f'{saved_dir}/saved_model.pth')
 
         print(f'Now test to test_dataset')
         model.load_state_dict(torch.load(f'{saved_dir}/saved_model.pth'))
+
+        self.inference(model, test_dataloader)
+
+        return model
+
+    def inference(self, model, dataloader, label_exist=True):
         model.eval()
 
-        prediction = []
-        real = []
-        for batch in test_dataloader:
+        predictions = []
+        reals = []
+        for batch in dataloader:
             x_t, y_t = batch
 
             target = model(x_t)
@@ -182,34 +203,16 @@ class ProxyModel:
                 target = target.view(target.shape[0], -1)
                 y_t = y_t.view(y_t.shape[0], -1)
             prediction = self.scaler.inverse_transform(target.detach().numpy())
+            if y_t.dim() == 1:
+                y_t = y_t.reshape(-1, 1)
             real = self.scaler.inverse_transform(y_t)
-            # prediction += [t * self.fit_std + self.fit_mean for t in target]
-            # real += [y * self.fit_std + self.fit_mean for y in y_t]
+            predictions.extend(prediction)
+            reals.extend(real)
 
-        # self.metric['r2_score'].append(r2_score([p.detach().numpy() for p in prediction], real))
-        self.metric['r2_score'].append(r2_score([p for p in prediction], real))
-        print(f"{self.metric['r2_score']}")
+        if label_exist:
+            self.predictions = predictions
+            self.reals = reals
+            self.metric['r2_score'].append(r2_score([p for p in predictions], [r for r in reals]))
+            print(f"{self.metric['r2_score']}")
 
-        return model
-
-    def inference(self, dataset):
-        args = self.args
-        fit_mean = self.fit_mean
-        fit_std = self.fit_std
-
-        assert self.model, 'Model not trained'
-        model = self.model
-
-        model.eval()
-        dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-
-        prediction = []
-        real = []
-        for batch in dataloader:
-            x_t, y_t = batch
-
-            target = model(x_t)
-            prediction += [t * fit_std + fit_mean for t in target]
-            real += [y * fit_std + fit_mean for y in y_t]
-
-        return prediction, real
+        return predictions, reals

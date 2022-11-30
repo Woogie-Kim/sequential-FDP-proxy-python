@@ -1,5 +1,6 @@
 import copy
-from dlmodels import CNNDataset
+from dlmodels import WPDataset
+from torch.utils.data import DataLoader
 import numpy as np
 import random
 
@@ -61,19 +62,20 @@ class PSO:
         position_all = []
         predictions_ens = []
         if neural_model:
-            for k in self.perms.reshape(self.perms.shape[-1], -1).tolist():
+            for k in self.perms:
 
-                if neural_model.model_name == 'CNN':
+                if neural_model.model_name in ['CNN', 'ResNet']:
                     for idx, position in enumerate(positions):
                         position.frontsim(idx + 1, position, k)
-                    dataset = CNNDataset(positions, args.max_tof, args.num_of_x, args.num_of_y, None)
+                    dataset = WPDataset(positions, args.max_tof, args.num_of_x, args.num_of_y, None)
                 elif neural_model.model_name == 'LSTM':
-                    dataset = CNNDataset(positions, args.production_time, args.dstep, args.tstep, None)
-                predictions, _ = neural_model.inference(dataset)
-                predictions_ens.append([p.detach().numpy() for p in predictions])
+                    dataset = WPDataset(positions, args.production_time, args.dstep, args.tstep, None)
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+                predictions, _ = neural_model.inference(neural_model.model, dataloader, label_exist=False)
+                predictions_ens.append([p for p in predictions])
 
         else:
-            for k in self.perms.reshape(self.perms.shape[-1], -1).tolist():
+            for k in self.perms:
                 predictions = []
                 for idx, position in enumerate(positions):
                     position.eclipse(idx + 1, position, k)
