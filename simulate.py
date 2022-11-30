@@ -32,7 +32,7 @@ class Simulate:
 
     def _run_converter(self, filename):
         os.chdir(self.simulation_directory)
-        command = fr"data/$convert < {filename} > NUL"
+        command = fr"$convert < {filename} > NUL"
         subprocess.run(command, shell=True, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         os.chdir('../')
 
@@ -106,21 +106,24 @@ class Simulate:
         num_of_tstep = int(total_time/num_of_dstep/tstep)
         drilling_term = range(1, num_of_dstep+1)
 
+        for well in wells:
+            well._set_control(wset, drilling_term)
+            well._set_schedule(drilling_term)
         with open(f'{self.simulation_directory}/{self.constraint_filename}_{idx}.DATA', 'w') as f:
             for t in drilling_term:
                 f.write('\nWCONPROD\n')
                 for idx, well in enumerate(wells):
                     if well.type['label'] == 'P':
-                        if __set_schedule__(control_var_type, t):
-                            f.write(f"P{idx + 1} 1* BHP 5000 4* {__set_control__(wset['P'], control_var_type, t)} /\n")
+                        if well.schedule[t] == 1:
+                            f.write(f"P{idx + 1} 1* BHP 5000 4* {well.control[t]} /\n")
                         else:
                             f.write(f"P{idx + 1} SHUT BHP 5000 4* {wset['P'][1]} /\n")
                 f.write('/\n\n')
                 f.write('WCONINJE\n')
                 for idx, well in enumerate(wells):
                     if well.type['label'] == 'I':
-                        if __set_schedule__(control_var_type, t):
-                            f.write(f"I{idx + 1} WATER 1* BHP 5000 1* {__set_control__(wset['I'], control_var_type, t)} /\n")
+                        if well.schedule[t] == 1:
+                            f.write(f"I{idx + 1} WATER 1* BHP 5000 1* {well.control[t]} /\n")
                         else:
                             f.write(
                                 f"I{idx + 1} WATER SHUT BHP 5000 1* {wset['I'][0]} /\n")
@@ -289,6 +292,9 @@ class Simulate:
         return self.fit, self.tecl
 
     def frontsim(self, idx, position, perm):
+
+        if len(perm) == 1:
+            perm = perm[0]
 
         make_permfield(f'{self.args.perm_filename}.DATA', perm)
         shutil.copy(f'{self.args.perm_filename}.DATA', self.args.simulation_directory)

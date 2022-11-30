@@ -3,7 +3,7 @@ import pickle
 
 from sampler import DataSampling
 from proxymodel import ProxyModel
-from optimization import PSO
+from optimization import GlobalOpt
 from utils import load_matfile
 import argparse
 import torch
@@ -81,12 +81,10 @@ def main():
     args.num_of_epochs = 20
     args.batch_size = 150
 
-    args.optimization = True
     args.optimization_algorithm = 'PSO'
     args.num_of_generations = 200
 
     args.gen_of_retrain = range(args.span_of_retrain, args.num_of_generations + 1, args.span_of_retrain)
-
 
     assert args.validate_ratio != 0, 'validate_ratio should be greater than 0'
     assert (1 - args.train_ratio - args.validate_ratio) > 0, '(train_ratio + validate_ratio) should not be 1'
@@ -118,41 +116,33 @@ def main():
         else:
             samples_p = []
             for idx in range(args.num_of_ensemble):
-                print(f'ensemble #{idx+1}')
+                print(f'ensemble #{idx + 1}')
                 initial_p = PlacementSample.make_candidate_solutions(num_of_candidates=args.num_of_train_sample)
-                samples_p += PlacementSample.make_train_data(initial_p[idx], perm[perm_idx[0][idx]-1])
+                samples_p += PlacementSample.make_train_data(initial_p[idx], perm[perm_idx[idx][0] - 1])
             with open(os.path.join(args.cached_dir, args.well_placement_sample_file), 'wb') as f:
                 pickle.dump(samples_p, f)
 
         ''' 1.2. train a proxy model '''
         Model_p = ProxyModel(args, samples_p, model_name='CNN')
-        if os.path.exists(f'{args.train_model_saved_dir}/saved_model.pth'):
-            Model_p.model.load_state_dict(torch.load(f'{args.train_model_saved_dir}/saved_model.pth'))
+        if os.path.exists(f'{Model_p.saved_dir}/saved_model.pth'):
+            Model_p.model.load_state_dict(torch.load(f'{Model_p.saved_dir}/saved_model.pth'))
         else:
-            Model_p.model = Model_p.train_model(samples_p, train_ratio=args.train_ratio, validate_ratio=args.validate_ratio,
-                                                saved_dir=args.train_model_saved_dir)
+            Model_p.model = Model_p.train_model(samples_p, train_ratio=args.train_ratio,
+                                                validate_ratio=args.validate_ratio,
+                                                saved_dir=Model_p.saved_dir)
 
         ''' 1.3. optimization '''
         placement_positions = PlacementSample.make_candidate_solutions(num_of_candidates=args.num_of_particles)
 
-        WPO = PSO(args, placement_positions, PlacementSample.perm[:, PlacementSample.perm_idx - 1])
-        for gen in range(args.num_of_generations):
-            placement_positions_evaluated = WPO.evaluate(WPO.positions_all[-1], Model_p)
-            WPO.update(placement_positions_evaluated)
+        WPO = GlobalOpt(args, placement_positions, [PlacementSample.perm[idx[0]-1] for idx in PlacementSample.perm_idx],
+                        alg_name='PSO', nn_model=Model_p, sample=samples_p)
+        WPO.iterate(args.num_of_generations)
+        best_wp = WPO.get_solution(location=True, type=True)
 
-            # retrain the proxy model
-            if gen in args.gen_of_retrain:
-                samples_p += WPO.positions_all[-1] * args.num_of_ensemble
-                Model_p.model = Model_p.train_model(samples_p, train_ratio=args.train_ratio,
-                                                    validate_ratio=args.validate_ratio,
-                                                    saved_dir=args.train_model_saved_dir)
-        best_location_index = [w.location['index'] for w in WPO.gbest[-1].wells if w.type['index'] != 0]
-        best_type_real = [w.type['index'] for w in WPO.gbest[-1].wells if w.type['index'] != 0]
     else:
         assert any([args.well_location_index, args.well_type_real]), ValueError(
             'The well location index and well type are required for well operation optimization only.')
-        best_location_index = args.well_location_index
-        best_type_real = args.well_type_real
+        best_wp = {'location': args.well_location_index, 'type': args.well_type_real}
 
     """ 2. Well Operation """
     if args.well_operation_optimization:
@@ -160,7 +150,7 @@ def main():
         OperationSample = DataSampling(args, wset=args.well_operation_wset, well_type=args.well_type,
                                        type_fix=True, location_fix=True, drilling_time_fix=False,
                                        control_fix=False, num_of_ensemble=args.num_of_ensemble,
-                                       num_of_wells=len(best_location_index), violation_check=False)
+                                       num_of_wells=len(best_wp['location']), violation_check=False)
 
         if os.path.exists(os.path.join(args.cached_dir, args.well_operation_sample_file)):
             with open(args.cached_file, 'rb') as f:
@@ -168,34 +158,29 @@ def main():
         else:
             args.drilling_cost = 2E+06
             initial_o = OperationSample.make_candidate_solutions(num_of_candidates=args.num_of_train_sample,
-                                                                 location=best_location_index,
-                                                                 type_real=best_type_real)
-            samples_o = OperationSample.make_train_data(initial_o, [perm[idx[0]-1] for idx in perm_idx], use_frontsim=False)
+                                                                 location=best_wp['location'],
+                                                                 type_real=best_wp['type'])
+            samples_o = OperationSample.make_train_data(initial_o, [perm[idx[0] - 1] for idx in perm_idx],
+                                                        use_frontsim=False)
             with open(os.path.join(args.cached_dir, args.well_operation_sample_file), 'wb') as f:
                 pickle.dump(samples_o, f)
 
         ''' 2.2. train a proxy model '''
         Model_o = ProxyModel(args, samples_o, model_name='LSTM')
-        if os.path.exists(f'{args.train_model_saved_dir}/saved_model.pth'):
-            Model_o.model.load_state_dict(torch.load(f'{args.train_model_saved_dir}/saved_model.pth'))
+        if os.path.exists(f'{Model_o.saved_dir}/saved_model.pth'):
+            Model_o.model.load_state_dict(torch.load(f'{Model_o.saved_dir}/saved_model.pth'))
         else:
-            Model_o.model = Model_o.train_model(samples_o, train_ratio=args.train_ratio, validate_ratio=args.validate_ratio,
-                                                saved_dir=args.train_model_saved_dir)
+            Model_o.model = Model_o.train_model(samples_o, train_ratio=args.train_ratio,
+                                                validate_ratio=args.validate_ratio,
+                                                saved_dir=Model_o.saved_dir)
 
         ''' 2.3. optimization '''
         operation_positions = OperationSample.make_candidate_solutions(num_of_candidates=args.num_of_particles)
 
-        WOO = PSO(args, operation_positions, OperationSample.perm[:, OperationSample.perm_idx - 1])
-        for gen in range(args.num_of_generations):
-            operation_positions_evaluated = WOO.evaluate(WOO.positions_all[-1], Model_o)
-            WOO.update(operation_positions_evaluated)
-
-            # retrain the proxy model
-            if gen in args.gen_of_retrain:
-                samples_o += WOO.positions_all[-1] * args.num_of_ensemble
-                Model_o.model = Model_o.train_model(samples_o, train_ratio=args.train_ratio,
-                                                    validate_ratio=args.validate_ratio,
-                                                    saved_dir=args.train_model_saved_dir)
+        WOO = GlobalOpt(args, operation_positions, OperationSample.perm[:, OperationSample.perm_idx - 1],
+                        alg_name='PSO', nn_model=Model_o, sample=samples_p)
+        WOO.iterate(args.num_of_generations)
+        best_wo = WOO.get_solution(drilling_time=True, control=True)
 
 
 if __name__ == "__main__":
