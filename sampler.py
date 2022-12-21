@@ -1,8 +1,7 @@
-from scipy import io
 from tqdm import tqdm_notebook as tqdm
 from position import PositionExample
 from utils import load_matfile
-
+from multiprocessing import Process
 
 class DataExample:
     def __init__(self, position, fitness, violation, matrix, time, tof, pressure):
@@ -58,16 +57,40 @@ class DataSampling:
         # train_data = []
         # for i in range(self.num_of_ensemble):
         #     perm = self.perm[:, self.perm_idx[:,i]-1]
+        ps = []
         for idx, position in enumerate(tqdm(positions, desc=f'now simulate: ')):
             if use_eclipse:
                 position.eclipse(idx+1, position, perms)
             if use_frontsim:
                 position.frontsim(idx+1, position, perms)
 
-            # train_data += positions[i]
-
         return positions
 
+    def make_train_data_parallel(self, positions, perms, use_eclipse=True, use_frontsim=True):
+        # train_data = []
+        # for i in range(self.num_of_ensemble):
+        #     perm = self.perm[:, self.perm_idx[:,i]-1]
+        ps1 = []
+        for idx, position in enumerate(tqdm(positions, desc=f'now Eclipse simulate: ')):
+            if use_eclipse:
+                pe = Process(target=position.eclipse, args=(idx+1, position, perms))
+            ps1.append(pe)
+            pe.start()
+
+        for p in ps1:
+            p.join()
+
+        ps2 = []
+        for idx, position in enumerate(tqdm(positions, desc=f'now Frontsim simulate: ')):
+            if use_frontsim:
+                pf = Process(target=position.frontsim, args=(idx+1, position, perms))
+            ps2.append(pf)
+            pf.start()
+
+        for p in ps2:
+            p.join()
+
+        return positions
     def make_candidate_solutions(self, num_of_candidates, location=None, type_real=None,
                                  drilling_time=None, control=None):
         """
