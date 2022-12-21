@@ -122,7 +122,7 @@ class WellExample:
                 elif self.type['label'] == 'I':
                     control = low + (-self.type['type'] - boundary[1]) / (boundary[1] - boundary[0]) * (high - low)
             else:
-                control = sum(control_range)/len(control_range)
+                control = sum(control_range['No'])/len(control_range['No'])
             control = [control] * len(time_steps)
         self.control = control
 
@@ -203,7 +203,7 @@ class PositionExample(Simulate):
         self.location_fix = location_fix
         self.drilling_time_fix = drilling_time_fix
         self.control_fix = control_fix
-        self.wset = {'P': wset[:2], 'I': wset[2:]}
+        self.wset = {'P': wset[:2], 'I': wset[2:], 'No':[0,0]}
         self.violation = violation
         self.violation_check = violation_check
 

@@ -1,5 +1,5 @@
 from scipy import io
-from tqdm import tqdm
+from tqdm import tqdm_notebook as tqdm
 from position import PositionExample
 from utils import load_matfile
 

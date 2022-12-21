@@ -104,7 +104,7 @@ class Simulate:
         control_var_type = "control" if wells[0].well_control else "type"
         num_of_dstep = ceil(total_time/dstep) if control_var_type == 'control' else 1
         num_of_tstep = int(total_time/num_of_dstep/tstep)
-        drilling_term = range(1, num_of_dstep+1)
+        drilling_term = range(num_of_dstep)
 
         for well in wells:
             well._set_control(wset, drilling_term)
