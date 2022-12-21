@@ -54,6 +54,7 @@ def main():
     args.train_ratio = 0.7
     args.validate_ratio = 0.15
     args.train_model_saved_dir = './model/1'
+    args.train_model_saved_dir_super = './model'
     args.span_of_retrain = 20
 
     args.ratio_of_infeasible = 0.3
