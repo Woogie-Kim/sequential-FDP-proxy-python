@@ -188,12 +188,13 @@ class Simulate:
 
         lines_converted = []
         for line in lines:
-            lines_converted.append(line.split())
+            lines_converted.append([element.strip() for element in line.split()])
 
         condition = False
         data = []
+
         for line in lines_converted:
-            if f"'{data_type}'" in line:
+            if f"'{data_type}" in line or f"'{data_type}'" in line:
                 condition = True
             elif condition:
                 data += [float(l) for l in line]
@@ -278,6 +279,8 @@ class Simulate:
             drill_data = self._get_drilldata(position.wells)
             fit = self._cal_fitness(position.wells, drill_data, prod_data, ['FOPT', 'FWPT', 'FWIT'],
                                     [self.args.oil_price, self.args.disposal_cost, self.args.injection_cost])
+
+
             prod_ens.append(prod_data)
             fit_ens.append(fit)
             tecl_ens.append(t_span)
@@ -288,7 +291,6 @@ class Simulate:
         self.prod_data = sum(prod_ens)/len(prod_ens)
         self.fit = sum(fit_ens)/len(fit_ens)
         self.tecl = sum(tecl_ens)/len(tecl_ens)
-
         return self.fit, self.tecl
 
     def frontsim(self, idx, position, perm):
@@ -315,7 +317,9 @@ class Simulate:
 
         TOF_beg = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'TIME_BEG')
         TOF_end = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'TIME_END')
-
+        Pressure = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'PRESSURE')
+        Swat = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'SWAT')
+        self.Dynamic = {'Pressure': Pressure,'Swat': Swat}
         self.tof = {"TOF_beg": TOF_beg, "TOF_end": TOF_end}
         self.tfrs = t_span
 
