@@ -57,7 +57,6 @@ class DataSampling:
         # train_data = []
         # for i in range(self.num_of_ensemble):
         #     perm = self.perm[:, self.perm_idx[:,i]-1]
-        ps = []
         for idx, position in enumerate(tqdm(positions, desc=f'now simulate: ')):
             if use_eclipse:
                 position.eclipse(idx+1, position, perms)
@@ -65,6 +64,7 @@ class DataSampling:
                 position.frontsim(idx+1, position, perms)
 
         return positions
+
 
     def make_train_data_parallel(self, positions, perms, use_eclipse=True, use_frontsim=True):
         # train_data = []
