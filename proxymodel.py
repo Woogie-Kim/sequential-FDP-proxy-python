@@ -1,7 +1,7 @@
 import torch.optim
 import numpy as np
 import os
-from tqdm import tqdm
+from tqdm import tqdm_notebook as tqdm
 from sampler import DataSampling
 from dlmodels import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
