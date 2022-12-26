@@ -327,3 +327,67 @@ class Simulate:
 
         return self.tof, self.tfrs
 
+    def eclipse_parallel(self, idx, position, perms):
+        '''
+        set & run the ecl files for parallel simulation
+        '''
+        for perm in perms:
+            make_permfield(f'{self.args.perm_filename}.DATA', perm)
+            shutil.copy(f'{self.args.perm_filename}.DATA', self.args.simulation_directory)
+
+            datafile_raw = self._get_datafile(self.ecl_filename)
+            self._set_datafile(f'{self.ecl_filename}_{idx}', datafile_raw, idx)
+            self._set_posfile(position, idx)
+            self._set_constfile(position, idx, self.args.production_time, self.args.tstep, self.args.dstep)
+            self._run_program('eclipse', f'{self.ecl_filename}_{idx}')
+
+
+    def ecl_result(self, idx, position):
+        '''
+        get production data & NPV for parallel simulation
+        '''
+        fit_ens = []
+        prod_ens = []
+        prod_data = self._get_proddata(idx)
+        drill_data = self._get_drilldata(position.wells)
+        fit = self._cal_fitness(position.wells, drill_data, prod_data, ['FOPT', 'FWPT', 'FWIT'],
+                                    [self.args.oil_price, self.args.disposal_cost, self.args.injection_cost])
+        prod_ens.append(prod_data)
+        fit_ens.append(fit)
+
+        self.prod_ens = prod_ens
+        self.fit_ens = fit_ens
+        self.prod_data = sum(prod_ens)/len(prod_ens)
+        self.fit = sum(fit_ens)/len(fit_ens)
+        self.fit = fit
+        return self.fit
+
+    def frontsim_parallel(self, idx, position, perm):
+        '''
+        set & run the frs files for parallel simulation
+        '''
+        if len(perm) == 1: perm = perm[0]
+        make_permfield(f'{self.args.perm_filename}.DATA', perm)
+        shutil.copy(f'{self.args.perm_filename}.DATA', self.args.simulation_directory)
+        datafile_raw = self._get_datafile(self.frs_filename)
+        self._set_datafile(f'{self.frs_filename}_{idx}', datafile_raw, idx)
+        self._set_posfile(position, idx)
+        self._set_constfile(position, idx, self.args.streamline_time, self.args.tstep, self.args.dstep)
+        self._run_program('frontsim', f'{self.frs_filename}_{idx}')
+
+    def frs_result(self, idx):
+        '''
+        get TOF, Dynamic & permeability for parallel simulation
+        '''
+        num_of_tstep = int(self.args.streamline_time / self.args.tstep)
+        self._convert_frs_result(idx, f'{self.frs_filename}', num_of_tstep)
+        self._run_converter('Restart_converter.log')
+
+        TOF_beg = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'TIME_BEG')
+        TOF_end = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'TIME_END')
+        Pressure = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'PRESSURE')
+        Swat = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'SWAT')
+        self.Dynamic = {'Pressure': Pressure, 'Swat': Swat}
+        self.tof = {"TOF_beg": TOF_beg, "TOF_end": TOF_end}
+        self.perm = perm  # position 객체에 permeability 값을 저장하기 위해 추가
+        return self.tof, self.perm

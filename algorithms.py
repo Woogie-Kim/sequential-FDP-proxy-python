@@ -67,7 +67,9 @@ class PSO:
                 if neural_model.model_name in ['CNN', 'ResNet']:
                     for idx, position in enumerate(positions):
                         position.frontsim(idx + 1, position, k)
-                    dataset = WPDataset(positions, args.max_tof, args.num_of_x, args.num_of_y, None)
+                    dataset = WPDataset(data=positions, maxtof=args.max_tof, maxP=args.max_pressure,
+                                        res_oilsat=args.res_oilsat,nx=args.num_of_x, ny=args.num_of_y, transform=None,
+                                        flag_input=args.input_flag)
                 elif neural_model.model_name == 'LSTM':
                     dataset = WPDataset(positions, args.production_time, args.dstep, args.tstep, None)
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)

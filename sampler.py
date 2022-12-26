@@ -2,7 +2,8 @@ from tqdm import tqdm_notebook as tqdm
 from position import PositionExample
 from utils import load_matfile
 from multiprocessing import Process
-
+from time import sleep
+from os.path import exists
 class DataExample:
     def __init__(self, position, fitness, violation, matrix, time, tof, pressure):
         self.position = position
@@ -65,30 +66,37 @@ class DataSampling:
 
         return positions
 
-
     def make_train_data_parallel(self, positions, perms, use_eclipse=True, use_frontsim=True):
-        # train_data = []
-        # for i in range(self.num_of_ensemble):
-        #     perm = self.perm[:, self.perm_idx[:,i]-1]
-        ps1 = []
-        for idx, position in enumerate(tqdm(positions, desc=f'now Eclipse simulate: ')):
-            if use_eclipse:
-                pe = Process(target=position.eclipse, args=(idx+1, position, perms))
-            ps1.append(pe)
+
+        if use_eclipse: ps = []
+        for idx, position in enumerate(tqdm(positions, desc=f'now ecl simulate: ')):
+
+            pe = Process(target=position.eclipse_parallel, args=(idx + 1, position, perms))
             pe.start()
+            ps.append(pe)
+            if (((idx + 1) % self.args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(positions):
+                for p in ps: p.join()
+                while not exists(
+                    position.simulation_directory + '/' + position.ecl_filename + f'_{idx + 1}.RSM'): sleep(0.1)
+                ps = []
+            if (idx + 1) == len(positions):
+                for idx in range(len(positions)): positions[idx].ecl_result(idx + 1, positions[idx]);
 
-        for p in ps1:
-            p.join()
+        if use_frontsim: pfs = []
+        for idx, position in enumerate(tqdm(positions, desc=f'now frs simulate: ')):
+            position.frontsim(idx + 1, position, perms)
+            # 아래 코드로 하면 병렬은 되지만, .F0001 파일 생성이 안됨
 
-        ps2 = []
-        for idx, position in enumerate(tqdm(positions, desc=f'now Frontsim simulate: ')):
-            if use_frontsim:
-                pf = Process(target=position.frontsim, args=(idx+1, position, perms))
-            ps2.append(pf)
-            pf.start()
-
-        for p in ps2:
-            p.join()
+            # pf = Process(target=position.frontsim_parallel, args=(idx + 1, position, perms))
+            # pf.start()
+            # pfs.append(pf)
+            # if (((idx + 1) % args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(positions):
+            #     for p in pfs: p.join()
+            #     while not exists(
+            #         position.simulation_directory + '/' + position.frs_filename + f'_{idx + 1}.F0001'): sleep(1)
+            #     pfs = []
+            # if (idx + 1) == len(positions):
+            #     for idx in range(len(positions)): positions[idx].frs_result(idx + 1, positions[idx]);
 
         return positions
     def make_candidate_solutions(self, num_of_candidates, location=None, type_real=None,
