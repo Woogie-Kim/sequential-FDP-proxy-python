@@ -158,12 +158,12 @@ class CNN(nn.Module):
         out = self.fc_layer(out)
         return out
 
-    def _init_weight(self, layer, init_type = "He"):
+    def _init_weight(self, layer, init_type="He"):
         if isinstance(layer, nn.Conv2d):
             if init_type == "Xavier":
                 torch.nn.init.xavier_uniform(layer.weight)
             elif init_type == "He":
-                torch.nn.init.kaiming_uniform(layer.weight)
+                torch.nn.init.kaiming_uniform_(layer.weight)
 
 
 # https://cryptosalamander.tistory.com/156

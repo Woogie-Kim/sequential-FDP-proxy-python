@@ -27,6 +27,6 @@ def calculate_boundary(coord, nx, ny, length_x = 120, length_y = 120):
     :return: reservoir boundary distance
     '''
     x, y = coord
-    x_boundary = length_x * min(nx - x, x -1)
-    y_boundary = length_y * min(ny - y, y -1)
+    x_boundary = length_x * min(nx - x, abs(x))
+    y_boundary = length_y * min(ny - y, abs(y))
     return min(x_boundary, y_boundary)
