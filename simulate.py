@@ -297,6 +297,8 @@ class Simulate:
 
         if len(perm) == 1:
             perm = perm[0]
+        # position 객체에 permeability 값을 저장하기 위해 추가
+        self.perm = perm
 
         make_permfield(f'{self.args.perm_filename}.DATA', perm)
         shutil.copy(f'{self.args.perm_filename}.DATA', self.args.simulation_directory)

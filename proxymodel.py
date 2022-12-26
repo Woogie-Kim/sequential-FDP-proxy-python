@@ -4,6 +4,7 @@ import os
 from tqdm import tqdm_notebook as tqdm
 from sampler import DataSampling
 from dlmodels import WPDataset, WODataset, CNN, LSTM, ResNet18
+# from dlmodels_modified import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 from sklearn.metrics import r2_score
@@ -18,8 +19,10 @@ class ProxyModel:
         self.model_name = model_name
         if model_name == 'CNN':
             self.model = CNN()
+            # self.model = CNN(args=args)
         elif model_name == 'ResNet':
             self.model = ResNet18()
+            # self.model = ResNet18(args=args)
         elif model_name == 'LSTM':
             self.model = LSTM(
                             input_size=positions[0].num_of_wells,
@@ -111,6 +114,8 @@ class ProxyModel:
         data = self.preprocess(data, model_name=self.model_name)
         if self.model_name in ['CNN', 'ResNet']:
             dataset = WPDataset(data, args.max_tof, args.num_of_x, args.num_of_y, None)
+            # dataset = WPDataset(data=data, maxtof=args.max_tof, maxP=args.max_pressure, res_oilsat= args.res_oilsat,
+            #                     nx=args.num_of_x, ny=args.num_of_y, transform=None, flag_input=args.input_flag)
         elif self.model_name in ['LSTM']:
             dataset = WODataset(data, args.production_time, args.dstep, args.tstep, None)
         else:

@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-
 class WPDataset(Dataset):
     def __init__(self, data, maxtof, nx, ny, transform=None):
         self.data = data
