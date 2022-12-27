@@ -70,7 +70,6 @@ class DataSampling:
 
         if use_eclipse: ps = []
         for idx, position in enumerate(tqdm(positions, desc=f'now ecl simulate: ')):
-
             pe = Process(target=position.eclipse_parallel, args=(idx + 1, position, perms))
             pe.start()
             ps.append(pe)
@@ -80,23 +79,20 @@ class DataSampling:
                     position.simulation_directory + '/' + position.ecl_filename + f'_{idx + 1}.RSM'): sleep(0.1)
                 ps = []
             if (idx + 1) == len(positions):
-                for idx in range(len(positions)): positions[idx].ecl_result(idx + 1, positions[idx]);
+                for idx in range(len(positions)): positions[idx].ecl_result(idx + 1, positions[idx])
 
         if use_frontsim: pfs = []
         for idx, position in enumerate(tqdm(positions, desc=f'now frs simulate: ')):
-            position.frontsim(idx + 1, position, perms)
-            # 아래 코드로 하면 병렬은 되지만, .F0001 파일 생성이 안됨
-
-            # pf = Process(target=position.frontsim_parallel, args=(idx + 1, position, perms))
-            # pf.start()
-            # pfs.append(pf)
-            # if (((idx + 1) % args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(positions):
-            #     for p in pfs: p.join()
-            #     while not exists(
-            #         position.simulation_directory + '/' + position.frs_filename + f'_{idx + 1}.F0001'): sleep(1)
-            #     pfs = []
-            # if (idx + 1) == len(positions):
-            #     for idx in range(len(positions)): positions[idx].frs_result(idx + 1, positions[idx]);
+            pf = Process(target=position.frontsim_parallel, args=(idx + 1, position, perms))
+            pf.start()
+            pfs.append(pf)
+            if (((idx + 1) % self.args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(positions):
+                for p in pfs: p.join()
+                while not exists(
+                    position.simulation_directory + '/' + position.frs_filename + f'_{idx + 1}.X0001'): sleep(0.1)
+                pfs = []
+            if (idx + 1) == len(positions):
+                for idx in range(len(positions)): positions[idx].frs_result(idx + 1, positions[idx])
 
         return positions
     def make_candidate_solutions(self, num_of_candidates, location=None, type_real=None,

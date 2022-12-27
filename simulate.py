@@ -327,6 +327,10 @@ class Simulate:
 
         return self.tof, self.tfrs
 
+########################################################################################################################
+# You can use this model if you want to parallel run the ecl & frs #####################################################
+# Last update : 27-Dec-2022 ############################################################################################
+########################################################################################################################
     def eclipse_parallel(self, idx, position, perms):
         '''
         set & run the ecl files for parallel simulation
@@ -346,27 +350,20 @@ class Simulate:
         '''
         get production data & NPV for parallel simulation
         '''
-        fit_ens = []
-        prod_ens = []
         prod_data = self._get_proddata(idx)
         drill_data = self._get_drilldata(position.wells)
         fit = self._cal_fitness(position.wells, drill_data, prod_data, ['FOPT', 'FWPT', 'FWIT'],
                                     [self.args.oil_price, self.args.disposal_cost, self.args.injection_cost])
-        prod_ens.append(prod_data)
-        fit_ens.append(fit)
-
-        self.prod_ens = prod_ens
-        self.fit_ens = fit_ens
-        self.prod_data = sum(prod_ens)/len(prod_ens)
-        self.fit = sum(fit_ens)/len(fit_ens)
+        self.prod_data = prod_data
         self.fit = fit
-        return self.fit
+        return self.prod_data, self.fit
 
     def frontsim_parallel(self, idx, position, perm):
         '''
         set & run the frs files for parallel simulation
         '''
         if len(perm) == 1: perm = perm[0]
+        self.perm = perm  # position 객체에 permeability 값을 저장하기 위해 추가
         make_permfield(f'{self.args.perm_filename}.DATA', perm)
         shutil.copy(f'{self.args.perm_filename}.DATA', self.args.simulation_directory)
         datafile_raw = self._get_datafile(self.frs_filename)
@@ -374,6 +371,7 @@ class Simulate:
         self._set_posfile(position, idx)
         self._set_constfile(position, idx, self.args.streamline_time, self.args.tstep, self.args.dstep)
         self._run_program('frontsim', f'{self.frs_filename}_{idx}')
+        return self.perm
 
     def frs_result(self, idx):
         '''
@@ -389,5 +387,4 @@ class Simulate:
         Swat = self._get_griddata(idx, num_of_tstep, self.frs_filename, 'SWAT')
         self.Dynamic = {'Pressure': Pressure, 'Swat': Swat}
         self.tof = {"TOF_beg": TOF_beg, "TOF_end": TOF_end}
-        self.perm = perm  # position 객체에 permeability 값을 저장하기 위해 추가
-        return self.tof, self.perm
+        return self.tof, self.Dynamic
