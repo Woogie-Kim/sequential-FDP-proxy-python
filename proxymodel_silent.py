@@ -1,9 +1,7 @@
 import torch.optim
 import numpy as np
 import os
-from tqdm import tqdm_notebook as tqdm
 from sampler import DataSampling
-# from dlmodels import WPDataset, WODataset, CNN, LSTM, ResNet18
 from dlmodels_modified import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
@@ -11,18 +9,16 @@ from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 
 
-class ProxyModel:
+class SilentProxyModel:
     def __init__(self,
                  args,
                  positions,
                  model_name='CNN'):
         self.model_name = model_name
         if model_name == 'CNN':
-            self.model = CNN()
-            # self.model = CNN(args=args)
+            self.model = CNN(args=args)
         elif model_name == 'ResNet':
-            self.model = ResNet18()
-            # self.model = ResNet18(args=args)
+            self.model = ResNet18(args=args)
         elif model_name == 'LSTM':
             self.model = LSTM(
                             input_size=positions[0].num_of_wells,
@@ -113,9 +109,8 @@ class ProxyModel:
 
         data = self.preprocess(data, model_name=self.model_name)
         if self.model_name in ['CNN', 'ResNet']:
-            dataset = WPDataset(data, args.max_tof, args.num_of_x, args.num_of_y, None)
-            # dataset = WPDataset(data=data, maxtof=args.max_tof, maxP=args.max_pressure, res_oilsat= args.res_oilsat,
-            #                     nx=args.num_of_x, ny=args.num_of_y, transform=None, flag_input=args.input_flag)
+            dataset = WPDataset(data=data, maxtof=args.max_tof, maxP=args.max_pressure, res_oilsat= args.res_oilsat,
+                                nx=args.num_of_x, ny=args.num_of_y, transform=None, flag_input=args.input_flag)
         elif self.model_name in ['LSTM']:
             dataset = WODataset(data, args.production_time, args.dstep, args.tstep, None)
         else:
@@ -149,7 +144,7 @@ class ProxyModel:
         min_valid_loss = np.inf
 
         eps = 1e-7
-        iter_bar = tqdm(range(self.args.num_of_epochs))
+        iter_bar = range(self.args.num_of_epochs)
         for epoch in iter_bar:
             model.train()
             train_loss = 0.0
@@ -165,7 +160,6 @@ class ProxyModel:
                 optimizer.step()
 
                 train_loss += loss.item()
-            iter_bar.set_description(f"epoch: {epoch} - loss: {train_loss / len(train_dataloader)} ")
 
             valid_loss = 0.0
             model.eval()  # Optional when not using Model Specific layer
@@ -221,3 +215,4 @@ class ProxyModel:
             print(f"{self.metric['r2_score']}")
 
         return predictions, reals
+

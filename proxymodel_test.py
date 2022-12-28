@@ -129,16 +129,16 @@ class ProxyModel:
 
         return train_dataloader, valid_dataloader, test_dataloader
 
-    def train_model(self, data, train_ratio=0.7, validate_ratio=0.15, saved_dir='./model'):
+    def train_model(self, data, train_ratio=0.7, validate_ratio=0.15, saved_dir='./model', saved_model='saved_model'):
 
         train_dataloader, valid_dataloader, test_dataloader = \
             self.make_dataloader(data, train_ratio=train_ratio, validate_ratio=validate_ratio)
 
-        self.model = self.train(self.model, train_dataloader, valid_dataloader, test_dataloader, saved_dir)
+        self.model = self.train(self.model, train_dataloader, valid_dataloader, test_dataloader, saved_dir, saved_model)
 
         return self.model
 
-    def train(self, model, train_dataloader, valid_dataloader, test_dataloader, saved_dir='./model'):
+    def train(self, model, train_dataloader, valid_dataloader, test_dataloader, saved_dir='./model', saved_model='saved_model'):
 
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=3e-3)
@@ -182,10 +182,10 @@ class ProxyModel:
                 # Saving State Dict
                 if not os.path.exists(saved_dir):
                     os.mkdir(saved_dir)
-                torch.save(model.state_dict(), f'{saved_dir}/saved_model.pth')
+                torch.save(model.state_dict(), f'{saved_dir}/{saved_model}.pth')
 
         print(f'Now test to test_dataset')
-        model.load_state_dict(torch.load(f'{saved_dir}/saved_model.pth'))
+        model.load_state_dict(torch.load(f'{saved_dir}/{saved_model}.pth'))
 
         self.inference(model, test_dataloader)
 
