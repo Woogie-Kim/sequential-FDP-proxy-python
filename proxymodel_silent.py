@@ -5,7 +5,7 @@ from sampler import DataSampling
 from dlmodels_modified import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_absolute_percentage_error
 from sklearn.preprocessing import StandardScaler
 
 
@@ -42,7 +42,7 @@ class SilentProxyModel:
         for position in positions:
             position.fit_norm = (position.fit - self.fit_mean) / self.fit_std
 
-        self.metric = {"r2_score": []}
+        self.metric = {"r2_score": [], "MAPE": []}
 
     def preprocess(self, data, model_name):
         def __merge_schedule_control__(schedule, control):
@@ -171,20 +171,14 @@ class SilentProxyModel:
                 valid_loss += loss.item()
 
             valid_loss /= len(valid_dataloader)
-            print(
-                f'Epoch {epoch + 1} \t\t Training Loss: {train_loss / len(train_dataloader)} \t\t '
-                f'Validation Loss: {valid_loss}')
             if min_valid_loss > valid_loss:
-                print(f'Validation Loss Decreased({min_valid_loss:.6f}--->{valid_loss:.6f}) \t Saving The Model')
                 min_valid_loss = valid_loss
                 # Saving State Dict
                 if not os.path.exists(saved_dir):
                     os.mkdir(saved_dir)
                 torch.save(model.state_dict(), f'{saved_dir}/{saved_model}.pth')
 
-        print(f'Now test to test_dataset')
         model.load_state_dict(torch.load(f'{saved_dir}/{saved_model}.pth'))
-
         self.inference(model, test_dataloader)
 
         return model
@@ -212,7 +206,9 @@ class SilentProxyModel:
             self.predictions = predictions
             self.reals = reals
             self.metric['r2_score'].append(r2_score([p for p in predictions], [r for r in reals]))
-            print(f"{self.metric['r2_score']}")
+            self.metric['MAPE'].append(mean_absolute_percentage_error([p for p in predictions], [r for r in reals]))
+            print(f"R_2: {self.metric['r2_score'][0]:.4f}")
+            print(f"MAPE: {self.metric['MAPE'][0]:.4f}%")
 
         return predictions, reals
 

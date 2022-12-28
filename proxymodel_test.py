@@ -6,7 +6,7 @@ from sampler import DataSampling
 from dlmodels_modified import WPDataset, WODataset, CNN, LSTM, ResNet18
 from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_absolute_percentage_error
 from sklearn.preprocessing import StandardScaler
 
 
@@ -43,7 +43,7 @@ class ProxyModel:
         for position in positions:
             position.fit_norm = (position.fit - self.fit_mean) / self.fit_std
 
-        self.metric = {"r2_score": []}
+        self.metric = {"r2_score": [], "MAPE": []}
 
     def preprocess(self, data, model_name):
         def __merge_schedule_control__(schedule, control):
@@ -214,6 +214,7 @@ class ProxyModel:
             self.predictions = predictions
             self.reals = reals
             self.metric['r2_score'].append(r2_score([p for p in predictions], [r for r in reals]))
-            print(f"{self.metric['r2_score']}")
-
+            self.metric['MAPE'].append(mean_absolute_percentage_error([p for p in predictions], [r for r in reals]))
+            print(f"R_2: {self.metric['r2_score'][0]:.4f}")
+            print(f"MAPE: {self.metric['MAPE'][0]:.2f}%")
         return predictions, reals
