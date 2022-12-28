@@ -1,6 +1,7 @@
 from scipy import io
-
-
+import matplotlib.pyplot as plt
+import os
+from math import *
 def load_matfile(filename, data_type):
     data = io.loadmat(filename)
     return data["PERMX"][0, 0][data_type].transpose().tolist()
@@ -30,3 +31,31 @@ def calculate_boundary(coord, nx, ny, length_x = 120, length_y = 120):
     x_boundary = length_x * min(nx - x, abs(x))
     y_boundary = length_y * min(ny - y, abs(y))
     return min(x_boundary, y_boundary)
+
+
+def get_regress(Model, args, filename=None, show=None):
+    real = Model.reals
+    prediction = Model.predictions
+    real = [r[0]/1e6 for r in real]
+    prediction = [p[0]/1e6 for p in prediction]
+    value_range = [0, 1.05 * max(max(real, prediction))]
+    fig = plt.figure(dpi=300)
+    ax = fig.add_subplot()
+    ax.scatter(real, prediction, s=6, c='k')
+    ax.plot(value_range, value_range, color='r', linewidth=1.2)
+    ax.set_aspect('equal', adjustable='box')
+    plt.title(fr"R$^{2}$: {Model.metric['r2_score'][0]:.4f}",fontweight='bold', )
+    plt.xlabel('True NPV (MM$)',fontname='Times New Roman')
+    plt.ylabel('Predicted NPV (MM$)', fontname='Times New Roman')
+    plt.xlim(value_range)
+    plt.ylim(value_range)
+    plt.locator_params(nbins=value_range[-1]//100)
+
+
+    if filename:
+        file_path = os.path.join(args.train_model_saved_dir, args.train_model_figure_saved_dir)
+        if not os.path.exists(file_path):
+            os.mkdir(file_path)
+        plt.savefig(os.path.join(file_path, filename)+'.png', facecolor='white')
+    if show:
+        plt.show()

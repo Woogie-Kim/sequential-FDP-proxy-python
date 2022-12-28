@@ -3,8 +3,9 @@ from dlmodels import WPDataset
 from torch.utils.data import DataLoader
 import numpy as np
 import random
-
-
+from os.path import exists
+from multiprocessing import Process
+from time import sleep
 def check_domination(positions):
     dominated_idx = []
     for idxA, positionA in enumerate(positions):
@@ -65,8 +66,21 @@ class PSO:
             for k in self.perms:
 
                 if neural_model.model_name in ['CNN', 'ResNet']:
+                    pfs = []
                     for idx, position in enumerate(positions):
-                        position.frontsim(idx + 1, position, k)
+                        pf = Process(target=position.frontsim_parallel, args=(idx + 1, position, k))
+                        pf.start()
+                        pfs.append(pf)
+                        if (((idx + 1) % self.args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(
+                                positions):
+                            for p in pfs: p.join()
+                            while not exists(
+                                    position.simulation_directory + '/' + position.frs_filename + f'_{idx + 1}.X0001'): sleep(
+                                0.1)
+                            pfs = []
+                        if (idx + 1) == len(positions):
+                            for idx in range(len(positions)): positions[idx].frs_result(idx + 1, k)
+
                     dataset = WPDataset(data=positions, maxtof=args.max_tof, maxP=args.max_pressure,
                                         res_oilsat=args.res_oilsat,nx=args.num_of_x, ny=args.num_of_y, transform=None,
                                         flag_input=args.input_flag)
@@ -79,10 +93,21 @@ class PSO:
         else:
             for k in self.perms:
                 predictions = []
-                for idx, position in enumerate(positions):
-                    position.eclipse(idx + 1, position, k)
-                    predictions.append(position.fit)
-                predictions_ens.append(predictions)
+                ps = []
+                for idx, position in enumerate(positions, desc=f'now ecl simulate: '):
+
+                    pe = Process(target=position.eclipse_parallel, args=(idx + 1, position, k))
+                    pe.start()
+                    ps.append(pe)
+                    if (((idx + 1) % self.args.max_process == 0) and not (idx + 1) == 0) or (idx + 1) == len(positions):
+                        for p in ps: p.join()
+                        while not exists(
+                                position.simulation_directory + '/' + position.ecl_filename + f'_{idx + 1}.RSM'): sleep(0.1)
+                        ps = []
+                    if (idx + 1) == len(positions):
+                        for idx in range(len(positions)): positions[idx].ecl_result(idx + 1, positions[idx])
+                predictions.append(position.fit)
+            predictions_ens.append(predictions)
 
         predictions = np.mean(np.array(predictions_ens), axis=0).squeeze().tolist()
         for position, pred in zip(positions, predictions):
