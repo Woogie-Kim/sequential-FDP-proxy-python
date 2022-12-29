@@ -206,9 +206,9 @@ class SilentProxyModel:
             self.predictions = predictions
             self.reals = reals
             self.metric['r2_score'].append(r2_score(reals, predictions))
-            self.metric['MAPE'].append(mean_absolute_percentage_error(reals, predictions))
+            self.metric['MAPE'].append(100 * mean_absolute_percentage_error(reals, predictions))
             print(f"R_2: {self.metric['r2_score'][0]:.4f}")
-            print(f"MAPE: {self.metric['MAPE'][0]:.2f}%")
+            print(f"MAPE: {self.metric['MAPE'][0]:.1f}%")
 
         return predictions, reals
 

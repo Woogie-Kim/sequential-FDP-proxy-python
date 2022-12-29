@@ -10,12 +10,14 @@ class GlobalOpt:
                  alg_name='PSO',
                  nn_model=None,
                  sample=None,
+                 fine_tune=None,
                  ):
         self.args = args
         self.perms = perms
         self.alg_name = alg_name
         self.nn_model = nn_model
         self.sample = sample
+        self.fine_tune = fine_tune
 
         self.algorithm = getattr(algorithms, alg_name)(args,
                                                        positions,
@@ -54,6 +56,14 @@ class GlobalOpt:
         args = self.args
         if self.nn_model:
             self.sample += sample * args.num_of_ensemble
-            self.nn_model.model = self.nn_model.train_model(self.sample, train_ratio=args.train_ratio,
+            if self.fine_tune:
+                for conv in self.nn_model.layer.parameters():
+                    conv.requires_grad = False
+                for fc in self.nn_model.fc_layer.parameters():
+                    fc.requires_grad = True
+            else:
+                self.nn_model.model = self.nn_model.train_model(self.sample, train_ratio=args.train_ratio,
                                                             validate_ratio=args.validate_ratio,
                                                             saved_dir=self.nn_model.saved_dir)
+
+

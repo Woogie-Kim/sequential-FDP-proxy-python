@@ -44,7 +44,7 @@ def get_regress(Model, args, filename=None, show=None):
     ax.scatter(real, prediction, s=6, c='k')
     ax.plot(value_range, value_range, color='r', linewidth=1.2)
     ax.set_aspect('equal', adjustable='box')
-    plt.title(fr"R$^{2}$: {Model.metric['r2_score'][0]:.4f}",fontweight='bold', )
+    plt.title(fr"R$^{2}$: {Model.metric['r2_score'][0]:.4f}", fontweight='bold', )
     plt.xlabel('True NPV (MM$)',fontname='Times New Roman')
     plt.ylabel('Predicted NPV (MM$)', fontname='Times New Roman')
     plt.xlim(value_range)
@@ -59,3 +59,4 @@ def get_regress(Model, args, filename=None, show=None):
         plt.savefig(os.path.join(file_path, filename)+'.png', facecolor='white')
     if show:
         plt.show()
+    plt.close(fig)
