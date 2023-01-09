@@ -2,6 +2,13 @@
 Sequential robust FDP optimization with CNN and LSTM proxy models.
 - python version
 
+## Modifier
+Jongwook Kim & Dyguyn Kim
+
+# Highlight of Modifying
+- Add Parallel Process for Eclipse simulation
+- Add GPU model training with Pytorch
+- Add variation of input features using feature maps
 
 ## References
 - [Sequential field development plan through robust optimization coupling with CNN and LSTM-based proxy models](https://doi.org/10.1016/j.petrol.2021.109887)
