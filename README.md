@@ -3,7 +3,7 @@ Sequential robust FDP optimization with CNN and LSTM proxy models.
 - python version
 
 ## Modifier
-<i>Jongwook Kim & Dyguyn Kim</i>
+<i>Jongwook Kim & Dogyun Kim</i>
 
 ### Highlight of Modifying
 - Add Parallel Process for Eclipse simulation
