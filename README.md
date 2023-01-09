@@ -3,9 +3,9 @@ Sequential robust FDP optimization with CNN and LSTM proxy models.
 - python version
 
 ## Modifier
-Jongwook Kim & Dyguyn Kim
+<i>Jongwook Kim & Dyguyn Kim</i>
 
-# Highlight of Modifying
+### Highlight of Modifying
 - Add Parallel Process for Eclipse simulation
 - Add GPU model training with Pytorch
 - Add variation of input features using feature maps
